@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Office timezone board with relative day and dawn-hour analysis" />
+    <title>Timezone Board</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <h1>Timezone Board</h1>
+        <p class="meta" id="updateMeta">Updating…</p>
+      </header>
+
+      <section class="section" aria-labelledby="whereLabel">
+        <h2 id="whereLabel">Where am I</h2>
+        <div class="picker" id="officePicker" role="radiogroup" aria-labelledby="whereLabel"></div>
+      </section>
+
+      <section class="section" aria-labelledby="officeLabel">
+        <h2 id="officeLabel">Office times</h2>
+        <div class="office-grid" id="officeGrid"></div>
+      </section>
+
+      <section class="section relative" aria-labelledby="relativeLabel">
+        <h2 id="relativeLabel">Relative analysis</h2>
+        <p class="relative-base" id="relativeBase"></p>
+
+        <div class="analysis-block">
+          <h3>D+1 <span class="hint">already next calendar day</span></h3>
+          <ul class="city-list" id="dPlusList"></ul>
+        </div>
+
+        <div class="analysis-block">
+          <h3>D−1 <span class="hint">still previous calendar day</span></h3>
+          <ul class="city-list" id="dMinusList"></ul>
+        </div>
+
+        <div class="analysis-block">
+          <h3>03:00–04:00 <span class="hint">local time</span></h3>
+          <ul class="city-list" id="dawnList"></ul>
+        </div>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
