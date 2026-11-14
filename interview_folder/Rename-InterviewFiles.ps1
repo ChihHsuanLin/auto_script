@@ -15,6 +15,7 @@ $WordExts  = @(".doc", ".docx")
 $PdfExts   = @(".pdf")
 $ImageExts = @(".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp")
 $TxtExts   = @(".txt")
+$MdExts    = @(".md")
 
 # ==============================
 # Rule Keywords
@@ -28,9 +29,10 @@ $Rule4Keywords  = @("畢業證書", "證書", "成績單", "排名", "排行", "
 $Rule5Keywords  = @("測評報告")
 $Rule6Keywords  = @("試題", "考題", "題目")
 $Rule7Keywords  = @("答案", "答題", "答卷")
-$Rule8Keywords  = @("論文")
+$Rule8Keywords  = @("論文", "專題", "摘要")
 $Rule9Keywords  = @("Q&A")
 $Rule10Keywords = @("反饋", "Amy", "Rebecca", "Ma", "KK")
+$Rule11Keywords = @("mm", "逐字稿")
 
 # ==============================
 # Helper Functions
@@ -133,24 +135,46 @@ function Get-PositionFromAssessmentFile {
     return $text
 }
 
+function Test-IsInterviewScreenshot {
+    param ([System.IO.FileInfo]$File)
+
+    $ext = $File.Extension.ToLower()
+
+    if ($ImageExts -notcontains $ext) {
+        return $false
+    }
+
+    # Rule 4 / Rule 7 會先吃掉部分圖片，不算面試截圖
+    if (Contains-AnyKeyword $File.Name $Rule4Keywords) {
+        return $false
+    }
+
+    if (Contains-AnyKeyword $File.Name $Rule7Keywords) {
+        return $false
+    }
+
+    return $true
+}
+
 function Get-NewFileName {
     param (
         [System.IO.FileInfo]$File,
         [string]$CandidateName,
-        [string]$RecommendSource
+        [string]$RecommendSource,
+        [hashtable]$ScreenshotSerialMap
     )
 
     $oldName = $File.Name
     $baseName = $File.BaseName
     $ext = $File.Extension.ToLower()
 
-    # Rule 1: CESBG人員基本資料表 / Word
-    if ((Contains-AnyKeyword $oldName $Rule1Keywords) -and ($WordExts -contains $ext)) {
+    # Rule 1: CESBG人員基本資料表 / Word or PDF
+    if ((Contains-AnyKeyword $oldName $Rule1Keywords) -and (($WordExts + $PdfExts) -contains $ext)) {
         return "01_${CandidateName}_CESBG人員基本資料表$ext"
     }
 
-    # Rule 2: 自傳 / Word
-    if ((Contains-AnyKeyword $oldName $Rule2Keywords) -and ($WordExts -contains $ext)) {
+    # Rule 2: 自傳 / Word or PDF
+    if ((Contains-AnyKeyword $oldName $Rule2Keywords) -and (($WordExts + $PdfExts) -contains $ext)) {
         return "02_${CandidateName}_中文自傳$ext"
     }
 
@@ -181,8 +205,8 @@ function Get-NewFileName {
         return "05_${CandidateName}_筆試考卷$ext"
     }
 
-    # Rule 7: 答案 / 答題 / 答卷 / Word or PDF or Image
-    if ((Contains-AnyKeyword $oldName $Rule7Keywords) -and (($WordExts + $PdfExts + $ImageExts) -contains $ext)) {
+    # Rule 7: 答案 / 答題 / 答卷 / Word or PDF or Image or TXT or MD
+    if ((Contains-AnyKeyword $oldName $Rule7Keywords) -and (($WordExts + $PdfExts + $ImageExts + $TxtExts + $MdExts) -contains $ext)) {
         return "05_${CandidateName}_筆試答卷$ext"
     }
 
@@ -207,9 +231,20 @@ function Get-NewFileName {
         return "08_${CandidateName}_面試反饋_${interviewer}$ext"
     }
 
-    # Rule 11: 其他 Image 檔案
+    # Rule 11: 面試逐字稿 / TXT
+    if ((Contains-AnyKeyword $oldName $Rule11Keywords) -and ($TxtExts -contains $ext)) {
+        return "09_${CandidateName}_面試逐字稿$ext"
+    }
+
+    # Rule 12: 其他 Image 檔案（依截圖時間編序號）
     if ($ImageExts -contains $ext) {
-        return "09_${CandidateName}_面試截圖$ext"
+        $serial = "01"
+
+        if ($null -ne $ScreenshotSerialMap -and $ScreenshotSerialMap.ContainsKey($File.FullName)) {
+            $serial = $ScreenshotSerialMap[$File.FullName]
+        }
+
+        return "09_${CandidateName}_面試截圖_${serial}$ext"
     }
 
     return ""
@@ -225,17 +260,18 @@ Write-Host ""
 Write-Host "目前資料夾：$Folder"
 Write-Host ""
 Write-Host "規則摘要："
-Write-Host "1. CESBG人員基本資料表 Word -> 01_姓名_CESBG人員基本資料表"
-Write-Host "2. 自傳 Word -> 02_姓名_中文自傳"
+Write-Host "1. CESBG人員基本資料表 Word / PDF -> 01_姓名_CESBG人員基本資料表"
+Write-Host "2. 自傳 Word / PDF -> 02_姓名_中文自傳"
 Write-Host "3. Resume / 推薦 / CV -> 01_姓名_CV_xx推薦"
 Write-Host "4. 證書 / 成績單 / 證件等 -> 03_姓名_原檔案標示"
 Write-Host "5. 測評報告 PDF -> 04_姓名_職位_測評報告"
 Write-Host "6. 試題 / 考題 / 題目 -> 05_姓名_筆試考卷"
-Write-Host "7. 答案 / 答題 / 答卷 -> 05_姓名_筆試答卷"
-Write-Host "8. 論文 -> 06_姓名_論文主題與中文摘要"
-Write-Host "9. Q&A -> 07_姓名_新幹搬Q&A"
+Write-Host "7. 答案 / 答題 / 答卷 Word / PDF / Image / TXT / MD -> 05_姓名_筆試答卷"
+Write-Host "8. 論文 / 專題 / 摘要 -> 06_姓名_論文主題與中文摘要"
+Write-Host "9. Q&A -> 07_姓名_新幹班Q&A"
 Write-Host "10. 反饋 / Amy / Rebecca / Ma / KK TXT -> 08_姓名_面試反饋_面試官"
-Write-Host "11. 其他 Image -> 09_姓名_面試截圖"
+Write-Host "11. mm / 逐字稿 TXT -> 09_姓名_面試逐字稿"
+Write-Host "12. 其他 Image -> 09_姓名_面試截圖_01（依截圖時間排序）"
 Write-Host ""
 
 $CandidateName = Get-CandidateName $FolderName
@@ -248,10 +284,20 @@ $Files = Get-ChildItem -Path $Folder -File | Where-Object {
     $_.DirectoryName -ne $OldFolder
 }
 
+# Rule 12: 多張截圖依 LastWriteTime 由早到晚編 01、02、03...
+$ScreenshotSerialMap = @{}
+$ScreenshotFiles = @($Files | Where-Object { Test-IsInterviewScreenshot $_ } | Sort-Object LastWriteTime, Name)
+$ScreenshotIndex = 1
+
+foreach ($screenshot in $ScreenshotFiles) {
+    $ScreenshotSerialMap[$screenshot.FullName] = "{0:D2}" -f $ScreenshotIndex
+    $ScreenshotIndex++
+}
+
 $Preview = @()
 
 foreach ($file in $Files) {
-    $newName = Get-NewFileName -File $file -CandidateName $CandidateName -RecommendSource $RecommendSource
+    $newName = Get-NewFileName -File $file -CandidateName $CandidateName -RecommendSource $RecommendSource -ScreenshotSerialMap $ScreenshotSerialMap
 
     if (-not [string]::IsNullOrWhiteSpace($newName)) {
         $newBase = [System.IO.Path]::GetFileNameWithoutExtension($newName)
